@@ -34,6 +34,8 @@ if(!defined $inputFileName || !defined $outputFileName)
   die("Usage: osmStripper <inputFile> <outputFile>\n");
 }
 
+binmode(STDOUT, ":utf8");
+
 my $input;
 my $output;
 open($input, $inputFileName);
@@ -46,31 +48,33 @@ while(my $line = <$input>)
   # check if $line is a node line
   if($line =~ /<node/)
   {
-    my $outputLine = "\t<node ";
     # split the lines by spaces
     my @splitted = split / /, $line;
+    # will hold the lat, lon and id part
+    my %nodeParts;
     foreach my $part (@splitted)
     {
       # add id part
       if($part =~ /^id/)
       {
-        $outputLine .= $part . " ";
+        $nodeParts{id} = $part;
         next;
       }
       # add lat part
       if($part =~ /^lat/)
       {
-        $outputLine .= $part . " ";
+        $nodeParts{lat} = $part;
         next;
       }
       #add lon part
       if($part =~ /^lon/)
       {
-        $outputLine .= $part . " ";
+        $nodeParts{lon} = $part;
         next;
       }
     }
-    $outputLine .= "/>\n";
+    my $outputLine = "\t<node " . $nodeParts{id} . " " . $nodeParts{lat} .
+        " " . $nodeParts{lon} . "/>\n";
     # print the sanitized node line
     print $output $outputLine;
     next;
