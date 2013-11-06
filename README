@@ -1,0 +1,7 @@
+OsmReduce
+=========
+
+Reduces an osm file to nodes and highways.
+Nodes keep only the id, lat and lon attributes,
+ways only the nodes and type tag
+
