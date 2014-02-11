@@ -19,7 +19,7 @@ my %knownWays = ("residential" => 1,
                  "secondary" => 1,
                  "tertiary" => 1,
                  "motorway_link" => 1,
-                 "trunk_link" => 1,                 
+                 "trunk_link" => 1,
                  "primary_link" => 1,
                  "secondary_link" => 1,
                  "road" => 1,
@@ -34,12 +34,28 @@ if(!defined $inputFileName || !defined $outputFileName)
   die("Usage: osmStripper <inputFile> <outputFile>\n");
 }
 
+# use grep to find all nodes that are used in a way in order to
+# remove unused ones
+#my $grep_out = system("grep -oP '<nd ref=\"\\d+\"' $inputFileName");
+my $grep_out = `grep -oP '<nd ref="\\d+"' $inputFileName`;
+
+my %used_nodes;
+
+foreach(split(/\n/, $grep_out)){
+  if($_ =~ m/<nd ref="(\d+)"/) {
+    $used_nodes{int($1)} = 1;
+  }
+}
+
+
 binmode(STDOUT, ":utf8");
 
 my $input;
 my $output;
 open($input, $inputFileName);
 open($output, ">$outputFileName");
+
+my $skipped_nodes = 0;
 
 print $output "<?xml version='1.0' encoding='UTF-8'?>\n<osm version=\"0.6\" generator=\"pbf2osm\">\n";
 
@@ -52,12 +68,19 @@ while(my $line = <$input>)
     my @splitted = split / /, $line;
     # will hold the lat, lon and id part
     my %nodeParts;
+    my $node_id;
     foreach my $part (@splitted)
     {
       # add id part
       if($part =~ /^id/)
       {
         $nodeParts{id} = $part;
+        # parse the actual id as int
+        if($part =~ m/id="(\d+)"/) {
+          $node_id = int($1);
+        } else {
+          die ("Could not extract id!");
+        }
         next;
       }
       # add lat part
@@ -76,10 +99,15 @@ while(my $line = <$input>)
     my $outputLine = "\t<node " . $nodeParts{id} . " " . $nodeParts{lat} .
         " " . $nodeParts{lon} . "/>\n";
     # print the sanitized node line
-    print $output $outputLine;
+    if(exists $used_nodes{int($node_id)}) {
+      print $output $outputLine;
+
+    } else {
+      $skipped_nodes += 1;
+    }
     next;
   }
-  
+
   # check if $line is the start of a way entry
   if($line =~ /<way /)
   {
@@ -116,9 +144,13 @@ while(my $line = <$input>)
     }
     print $output $outputWay if($valid);
   }
-  
+
 }
 
 print $output "</osm>";
 close $input;
 close $output;
+
+print "Done!\n";
+print "Included " . scalar(keys(%used_nodes)) . " nodes\n";
+print "Skipped $skipped_nodes nodes.\n";
